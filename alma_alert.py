@@ -227,11 +227,5 @@ def main():
     print("✅ Đã lưu trạng thái.")
     print("=" * 50)
 
-def main():
-    # Test gửi một tin nhắn đơn giản về Telegram
-    print("🚀 Sending TEST alert to Telegram...")
-    send_telegram("TEST: Bot ALMA 1m đang hoạt động ✅")
-
 if __name__ == "__main__":
     main()
-
