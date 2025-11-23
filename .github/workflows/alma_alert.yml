@@ -2,8 +2,8 @@ name: ALMA Cross Alert
 
 on:
   schedule:
-    - cron: "*/5 * * * *"   # chạy mỗi 5 phút
-  workflow_dispatch:         # cho phép chạy tay khi test
+    - cron: "* * * * *"     # CHẠY MỖI 1 PHÚT
+  workflow_dispatch:         # Cho phép bấm "Run workflow" để test tay
 
 jobs:
   run-alma-alert:
