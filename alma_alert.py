@@ -7,9 +7,12 @@ from datetime import datetime, timezone
 SYMBOL = "BTCUSDT"      # Cặp muốn theo dõi
 INTERVAL = "5m"         # Khung: 1m, 5m, 15m, 1h...
 LIMIT = 300             # Số nến lấy (đủ cho ALMA200)
+ALMA_OFFSET = 0.85
+ALMA_SIGMA = 6.0
 # ====================================
 
-def fetch_klines(symbol, interval, limit=300):
+def fetch_klines(symbol: str, interval: str, limit: int = 300):
+    """Lấy dữ liệu nến từ Binance"""
     url = "https://api.binance.com/api/v3/klines"
     params = {"symbol": symbol, "interval": interval, "limit": limit}
     resp = requests.get(url, params=params, timeout=10)
@@ -19,7 +22,8 @@ def fetch_klines(symbol, interval, limit=300):
     close_times = [int(k[6]) for k in data]   # close time (ms)
     return closes, close_times
 
-def alma(series, length=50, offset=0.85, sigma=6.0):
+def alma(series, length: int = 50, offset: float = 0.85, sigma: float = 6.0):
+    """Tính ALMA giống Pine ta.alma"""
     if len(series) < length:
         return [None] * len(series)
     m = offset * (length - 1)
@@ -29,7 +33,7 @@ def alma(series, length=50, offset=0.85, sigma=6.0):
         if i + 1 < length:
             out.append(None)
             continue
-        window = series[i+1-length:i+1]
+        window = series[i + 1 - length:i + 1]
         w_sum = 0.0
         aw_sum = 0.0
         for j, price in enumerate(window):
@@ -39,7 +43,8 @@ def alma(series, length=50, offset=0.85, sigma=6.0):
         out.append(aw_sum / w_sum if w_sum != 0 else None)
     return out
 
-def crossover(series1, series2):
+def crossover(series1, series2) -> bool:
+    """ALMA50 cắt LÊN ALMA200"""
     if len(series1) < 2 or len(series2) < 2:
         return False
     return (
@@ -48,7 +53,8 @@ def crossover(series1, series2):
         series1[-2] <= series2[-2] and series1[-1] > series2[-1]
     )
 
-def crossunder(series1, series2):
+def crossunder(series1, series2) -> bool:
+    """ALMA50 cắt XUỐNG ALMA200"""
     if len(series1) < 2 or len(series2) < 2:
         return False
     return (
@@ -58,17 +64,19 @@ def crossunder(series1, series2):
     )
 
 def send_telegram(msg: str):
+    """Gửi message qua Telegram Bot"""
     token = os.environ["TELEGRAM_BOT_TOKEN"]
     chat_id = os.environ["TELEGRAM_CHAT_ID"]
     url = f"https://api.telegram.org/bot{token}/sendMessage"
     params = {"chat_id": chat_id, "text": msg}
-    requests.get(url, params=params, timeout=10)
+    resp = requests.get(url, params=params, timeout=10)
+    resp.raise_for_status()
 
 def main():
     closes, close_times = fetch_klines(SYMBOL, INTERVAL, LIMIT)
 
-    alma50 = alma(closes, 50)
-    alma200 = alma(closes, 200)
+    alma50 = alma(closes, 50, ALMA_OFFSET, ALMA_SIGMA)
+    alma200 = alma(closes, 200, ALMA_OFFSET, ALMA_SIGMA)
 
     bull = crossover(alma50, alma200)
     bear = crossunder(alma50, alma200)
@@ -78,7 +86,9 @@ def main():
         return
 
     last_close_ts = close_times[-1] / 1000.0
-    last_close_dt = datetime.fromtimestamp(last_close_ts, tz=timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
+    last_close_dt = datetime.fromtimestamp(
+        last_close_ts, tz=timezone.utc
+    ).strftime("%Y-%m-%d %H:%M:%S UTC")
 
     if bull:
         msg = f"[{SYMBOL} {INTERVAL}] ALMA50 CẮT LÊN ALMA200 tại nến close {last_close_dt}"
