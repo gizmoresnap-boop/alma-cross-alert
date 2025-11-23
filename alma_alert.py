@@ -34,7 +34,7 @@ def fetch_klines(symbol: str, interval: str, limit: int = 300, retries=3):
         except requests.exceptions.HTTPError as e:
             if e.response.status_code == 451:
                 print("⚠️ Binance bị chặn (HTTP 451), chuyển sang Binance US...")
-                break  # Không retry nữa, chuyển sang API khác
+                break
             if i == retries - 1:
                 print(f"❌ Lỗi Binance API sau {retries} lần thử")
                 break
@@ -86,23 +86,29 @@ def alma(series, length: int = 50, offset: float = 0.85, sigma: float = 6.0):
     return out
 
 def crossover(series1, series2) -> bool:
-    """ALMA50 cắt LÊN ALMA200"""
-    if len(series1) < 2 or len(series2) < 2:
+    """
+    ALMA50 cắt LÊN ALMA200 trên nến ĐÃ ĐÓNG
+    Kiểm tra nến -3 và -2 (cả 2 đều đã đóng hoàn toàn)
+    """
+    if len(series1) < 3 or len(series2) < 3:
         return False
     return (
+        series1[-3] is not None and series2[-3] is not None and
         series1[-2] is not None and series2[-2] is not None and
-        series1[-1] is not None and series2[-1] is not None and
-        series1[-2] <= series2[-2] and series1[-1] > series2[-1]
+        series1[-3] <= series2[-3] and series1[-2] > series2[-2]
     )
 
 def crossunder(series1, series2) -> bool:
-    """ALMA50 cắt XUỐNG ALMA200"""
-    if len(series1) < 2 or len(series2) < 2:
+    """
+    ALMA50 cắt XUỐNG ALMA200 trên nến ĐÃ ĐÓNG
+    Kiểm tra nến -3 và -2 (cả 2 đều đã đóng hoàn toàn)
+    """
+    if len(series1) < 3 or len(series2) < 3:
         return False
     return (
+        series1[-3] is not None and series2[-3] is not None and
         series1[-2] is not None and series2[-2] is not None and
-        series1[-1] is not None and series2[-1] is not None and
-        series1[-2] >= series2[-2] and series1[-1] < series2[-1]
+        series1[-3] >= series2[-3] and series1[-2] < series2[-2]
     )
 
 def load_state():
@@ -160,27 +166,32 @@ def main():
     alma50 = alma(closes, 50, ALMA_OFFSET, ALMA_SIGMA)
     alma200 = alma(closes, 200, ALMA_OFFSET, ALMA_SIGMA)
     
-    # Kiểm tra giao cắt
+    # Kiểm tra giao cắt trên nến ĐÃ ĐÓNG
     bull = crossover(alma50, alma200)
     bear = crossunder(alma50, alma200)
     
     if not bull and not bear:
-        print("ℹ️ Không có tín hiệu giao cắt.")
+        print("ℹ️ Không có tín hiệu giao cắt trên nến đã đóng.")
         return
+    
+    # Lấy thông tin nến ĐÃ ĐÓNG (nến -2)
+    last_closed_candle_ts = close_times[-2]  # Nến đã đóng hoàn toàn
     
     # Kiểm tra đã gửi alert cho nến này chưa
     state = load_state()
-    last_close_ts = close_times[-1]
     
-    if state.get("last_alerted_candle") == last_close_ts:
+    if state.get("last_alerted_candle") == last_closed_candle_ts:
         print("⏭️ Đã gửi alert cho nến này rồi, bỏ qua...")
         return
     
     # Chuẩn bị thông tin
-    current_price = closes[-1]
-    last_close_dt = datetime.fromtimestamp(
-        last_close_ts / 1000.0, tz=timezone.utc
+    candle_close_price = closes[-2]  # Giá đóng của nến đã đóng
+    current_price = closes[-1]  # Giá hiện tại (nến đang hình thành)
+    
+    candle_close_dt = datetime.fromtimestamp(
+        last_closed_candle_ts / 1000.0, tz=timezone.utc
     ).strftime("%Y-%m-%d %H:%M:%S UTC")
+    
     chart_link = f"https://www.tradingview.com/chart/?symbol=BINANCE:{SYMBOL}&interval={INTERVAL}"
     
     # Tạo message
@@ -196,20 +207,23 @@ def main():
     msg = f"""{emoji} <b>{signal_type}</b>
 {SYMBOL} - Khung {INTERVAL}
 
+📍 Nến giao cắt (đã đóng): <b>${candle_close_price:,.2f}</b>
 💎 Giá hiện tại: <b>${current_price:,.2f}</b>
 📊 ALMA50 {action} ALMA200
-⏰ {last_close_dt}
+⏰ Thời gian nến đóng: {candle_close_dt}
 
 📈 <a href="{chart_link}">Xem chart TradingView</a>"""
     
     # Gửi alert
     print(f"\n{emoji} Phát hiện tín hiệu: {signal_type}")
-    print(f"💰 Giá: ${current_price:,.2f}")
+    print(f"📍 Giá nến đóng: ${candle_close_price:,.2f}")
+    print(f"💰 Giá hiện tại: ${current_price:,.2f}")
+    print(f"⏰ Thời gian: {candle_close_dt}")
     print(f"📤 Đang gửi alert đến Telegram...")
     send_telegram(msg)
     
     # Lưu trạng thái
-    save_state({"last_alerted_candle": last_close_ts})
+    save_state({"last_alerted_candle": last_closed_candle_ts})
     print("✅ Đã lưu trạng thái.")
     print("=" * 50)
 
