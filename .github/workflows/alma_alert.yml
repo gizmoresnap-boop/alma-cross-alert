@@ -2,8 +2,8 @@ name: ALMA Cross Alert
 
 on:
   schedule:
-    - cron: "* * * * *"     # CHẠY MỖI 1 PHÚT
-  workflow_dispatch:         # Cho phép bấm "Run workflow" để test tay
+    - cron: "* * * * *"     # Chạy mỗi 1 phút
+  workflow_dispatch:         # Cho phép test tay
 
 jobs:
   run-alma-alert:
@@ -29,3 +29,11 @@ jobs:
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
         run: |
           python alma_alert.py
+
+      - name: Commit state file
+        run: |
+          git config user.name "GitHub Actions Bot"
+          git config user.email "actions@github.com"
+          git add last_alert.json || true
+          git commit -m "Update alert state [skip ci]" || true
+          git push || true
