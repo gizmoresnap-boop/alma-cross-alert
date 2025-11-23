@@ -5,14 +5,16 @@ from datetime import datetime, timezone
 
 # ============= CẤU HÌNH =============
 SYMBOL = "BTCUSDT"      # Cặp muốn theo dõi
-INTERVAL = "5m"         # Khung: 1m, 5m, 15m, 1h...
+INTERVAL = "1m"         # KHUNG THỜI GIAN 1 PHÚT
 LIMIT = 300             # Số nến lấy (đủ cho ALMA200)
 ALMA_OFFSET = 0.85
 ALMA_SIGMA = 6.0
 # ====================================
 
 def fetch_klines(symbol: str, interval: str, limit: int = 300):
-    """Lấy dữ liệu nến từ Binance"""
+    """
+    Lấy dữ liệu nến từ Binance (public API, không cần API key)
+    """
     url = "https://api.binance.com/api/v3/klines"
     params = {"symbol": symbol, "interval": interval, "limit": limit}
     resp = requests.get(url, params=params, timeout=10)
@@ -23,7 +25,9 @@ def fetch_klines(symbol: str, interval: str, limit: int = 300):
     return closes, close_times
 
 def alma(series, length: int = 50, offset: float = 0.85, sigma: float = 6.0):
-    """Tính ALMA giống Pine ta.alma"""
+    """
+    Tính ALMA giống ta.alma trong Pine Script
+    """
     if len(series) < length:
         return [None] * len(series)
     m = offset * (length - 1)
@@ -44,7 +48,9 @@ def alma(series, length: int = 50, offset: float = 0.85, sigma: float = 6.0):
     return out
 
 def crossover(series1, series2) -> bool:
-    """ALMA50 cắt LÊN ALMA200"""
+    """
+    ALMA50 cắt LÊN ALMA200
+    """
     if len(series1) < 2 or len(series2) < 2:
         return False
     return (
@@ -54,49 +60,7 @@ def crossover(series1, series2) -> bool:
     )
 
 def crossunder(series1, series2) -> bool:
-    """ALMA50 cắt XUỐNG ALMA200"""
-    if len(series1) < 2 or len(series2) < 2:
-        return False
-    return (
-        series1[-2] is not None and series2[-2] is not None and
-        series1[-1] is not None and series2[-1] is not None and
-        series1[-2] >= series2[-2] and series1[-1] < series2[-1]
-    )
-
-def send_telegram(msg: str):
-    """Gửi message qua Telegram Bot"""
-    token = os.environ["TELEGRAM_BOT_TOKEN"]
-    chat_id = os.environ["TELEGRAM_CHAT_ID"]
-    url = f"https://api.telegram.org/bot{token}/sendMessage"
-    params = {"chat_id": chat_id, "text": msg}
-    resp = requests.get(url, params=params, timeout=10)
-    resp.raise_for_status()
-
-def main():
-    closes, close_times = fetch_klines(SYMBOL, INTERVAL, LIMIT)
-
-    alma50 = alma(closes, 50, ALMA_OFFSET, ALMA_SIGMA)
-    alma200 = alma(closes, 200, ALMA_OFFSET, ALMA_SIGMA)
-
-    bull = crossover(alma50, alma200)
-    bear = crossunder(alma50, alma200)
-
-    if not bull and not bear:
-        print("No ALMA cross this run.")
-        return
-
-    last_close_ts = close_times[-1] / 1000.0
-    last_close_dt = datetime.fromtimestamp(
-        last_close_ts, tz=timezone.utc
-    ).strftime("%Y-%m-%d %H:%M:%S UTC")
-
-    if bull:
-        msg = f"[{SYMBOL} {INTERVAL}] ALMA50 CẮT LÊN ALMA200 tại nến close {last_close_dt}"
-    else:
-        msg = f"[{SYMBOL} {INTERVAL}] ALMA50 CẮT XUỐNG ALMA200 tại nến close {last_close_dt}"
-
-    print("Sending alert:", msg)
-    send_telegram(msg)
-
-if __name__ == "__main__":
-    main()
+    """
+    ALMA50 cắt XUỐNG ALMA200
+    """
+    if len(series1) < 2 or len(
