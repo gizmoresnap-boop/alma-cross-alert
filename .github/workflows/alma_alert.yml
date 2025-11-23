@@ -8,7 +8,9 @@ on:
 jobs:
   run-alma-alert:
     runs-on: ubuntu-latest
-
+    permissions:              # ← FIX LỖI PERMISSION
+      contents: write         # ← Cho phép ghi file vào repo
+    
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
