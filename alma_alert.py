@@ -196,21 +196,29 @@ def main():
         a50_curr = alma50[-2]  # Nến -2 (đã đóng)
         a200_curr = alma200[-2]
         
-        # In ra giá trị với format an toàn
-        if a50_prev is not None:
-            print(f"Nến -3: ALMA50={a50_prev:.2f}, ALMA200={a200_prev:.2f if a200_prev else 'N/A'}")
+        # In ra giá trị một cách an toàn
+        prev_str = ""
+        curr_str = ""
+        
+        if a50_prev is not None and a200_prev is not None:
+            prev_str = f"Nến -3: ALMA50={a50_prev:.2f}, ALMA200={a200_prev:.2f}"
         else:
-            print(f"Nến -3: ALMA50=N/A, ALMA200={a200_prev:.2f if a200_prev else 'N/A'}")
-            
-        if a50_curr is not None:
-            print(f"Nến -2: ALMA50={a50_curr:.2f}, ALMA200={a200_curr:.2f if a200_curr else 'N/A'}")
+            prev_str = f"Nến -3: ALMA50={'N/A' if a50_prev is None else a50_prev}, ALMA200={'N/A' if a200_prev is None else a200_prev}"
+        
+        if a50_curr is not None and a200_curr is not None:
+            curr_str = f"Nến -2: ALMA50={a50_curr:.2f}, ALMA200={a200_curr:.2f}"
         else:
-            print(f"Nến -2: ALMA50=N/A, ALMA200={a200_curr:.2f if a200_curr else 'N/A'}")
+            curr_str = f"Nến -2: ALMA50={'N/A' if a50_curr is None else a50_curr}, ALMA200={'N/A' if a200_curr is None else a200_curr}"
+        
+        print(prev_str)
+        print(curr_str)
         
         if all([a50_prev is not None, a200_prev is not None, a50_curr is not None, a200_curr is not None]):
             print(f"\n📊 So sánh:")
-            print(f"  - Nến -3: ALMA50 {'<=' if a50_prev <= a200_prev else '>'} ALMA200 ({a50_prev:.2f} vs {a200_prev:.2f})")
-            print(f"  - Nến -2: ALMA50 {'>' if a50_curr > a200_curr else '<='} ALMA200 ({a50_curr:.2f} vs {a200_curr:.2f})")
+            relation_prev = '<=' if a50_prev <= a200_prev else '>'
+            relation_curr = '>' if a50_curr > a200_curr else '<='
+            print(f"  - Nến -3: ALMA50 {relation_prev} ALMA200 ({a50_prev:.2f} vs {a200_prev:.2f})")
+            print(f"  - Nến -2: ALMA50 {relation_curr} ALMA200 ({a50_curr:.2f} vs {a200_curr:.2f})")
             
             if a50_prev <= a200_prev and a50_curr > a200_curr:
                 print("  ✅ ĐÃ CÓ CROSSOVER (ALMA50 cắt LÊN)")
