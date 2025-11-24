@@ -150,9 +150,9 @@ def send_telegram(msg: str, retries=3):
             time.sleep(2)
 
 def main():
-    print("=" * 50)
+    print("=" * 70)
     print(f"🚀 Bắt đầu kiểm tra ALMA {SYMBOL} khung {INTERVAL}")
-    print("=" * 50)
+    print("=" * 70)
     
     # Lấy dữ liệu
     try:
@@ -166,16 +166,69 @@ def main():
     alma50 = alma(closes, 50, ALMA_OFFSET, ALMA_SIGMA)
     alma200 = alma(closes, 200, ALMA_OFFSET, ALMA_SIGMA)
     
-    # Kiểm tra giao cắt trên nến ĐÃ ĐÓNG
+    # ========== DEBUG: IN RA GIÁ TRỊ ALMA ==========
+    print("\n🔍 DEBUG - Giá trị ALMA các nến gần nhất:")
+    print("-" * 70)
+    for i in range(-10, 0):  # 10 nến cuối
+        candle_time = datetime.fromtimestamp(
+            close_times[i] / 1000.0, tz=timezone.utc
+        ).strftime("%H:%M:%S")
+        
+        a50 = alma50[i] if alma50[i] is not None else "N/A"
+        a200 = alma200[i] if alma200[i] is not None else "N/A"
+        
+        if isinstance(a50, float) and isinstance(a200, float):
+            diff = a50 - a200
+            status = "🟢 ALMA50 > ALMA200" if diff > 0 else "🔴 ALMA50 < ALMA200"
+            print(f"Nến [{candle_time}] | ALMA50: {a50:.2f} | ALMA200: {a200:.2f} | {status}")
+        else:
+            print(f"Nến [{candle_time}] | ALMA50: {a50} | ALMA200: {a200}")
+    print("-" * 70)
+    
+    # ========== DEBUG: KIỂM TRA LOGIC GIAO CẮT ==========
+    print("\n🔍 DEBUG - Kiểm tra điều kiện giao cắt:")
+    print("-" * 70)
+    
+    # Kiểm tra nến -3 và -2
+    if len(alma50) >= 3 and len(alma200) >= 3:
+        a50_prev = alma50[-3]  # Nến -3
+        a200_prev = alma200[-3]
+        a50_curr = alma50[-2]  # Nến -2 (đã đóng)
+        a200_curr = alma200[-2]
+        
+        print(f"Nến -3: ALMA50={a50_prev:.2f if a50_prev else 'N/A'}, ALMA200={a200_prev:.2f if a200_prev else 'N/A'}")
+        print(f"Nến -2: ALMA50={a50_curr:.2f if a50_curr else 'N/A'}, ALMA200={a200_curr:.2f if a200_curr else 'N/A'}")
+        
+        if all([a50_prev, a200_prev, a50_curr, a200_curr]):
+            print(f"\n📊 So sánh:")
+            print(f"  - Nến -3: ALMA50 {'<=' if a50_prev <= a200_prev else '>'} ALMA200")
+            print(f"  - Nến -2: ALMA50 {'>' if a50_curr > a200_curr else '<='} ALMA200")
+            
+            if a50_prev <= a200_prev and a50_curr > a200_curr:
+                print("  ✅ ĐÃ CÓ CROSSOVER (ALMA50 cắt LÊN)")
+            elif a50_prev >= a200_prev and a50_curr < a200_curr:
+                print("  ✅ ĐÃ CÓ CROSSUNDER (ALMA50 cắt XUỐNG)")
+            else:
+                print("  ℹ️ KHÔNG CÓ GIAO CẮT")
+        else:
+            print("⚠️ Có giá trị ALMA = None, không thể kiểm tra giao cắt")
+    print("-" * 70)
+    
+    # Kiểm tra giao cắt bằng hàm
     bull = crossover(alma50, alma200)
     bear = crossunder(alma50, alma200)
     
+    print(f"\n🎯 Kết quả từ hàm crossover/crossunder:")
+    print(f"  - Crossover (tăng): {bull}")
+    print(f"  - Crossunder (giảm): {bear}")
+    print("=" * 70)
+    
     if not bull and not bear:
-        print("ℹ️ Không có tín hiệu giao cắt trên nến đã đóng.")
+        print("\nℹ️ Không có tín hiệu giao cắt trên nến đã đóng.")
         return
     
     # Lấy thông tin nến ĐÃ ĐÓNG (nến -2)
-    last_closed_candle_ts = close_times[-2]  # Nến đã đóng hoàn toàn
+    last_closed_candle_ts = close_times[-2]
     
     # Kiểm tra đã gửi alert cho nến này chưa
     state = load_state()
@@ -185,8 +238,8 @@ def main():
         return
     
     # Chuẩn bị thông tin
-    candle_close_price = closes[-2]  # Giá đóng của nến đã đóng
-    current_price = closes[-1]  # Giá hiện tại (nến đang hình thành)
+    candle_close_price = closes[-2]
+    current_price = closes[-1]
     
     candle_close_dt = datetime.fromtimestamp(
         last_closed_candle_ts / 1000.0, tz=timezone.utc
@@ -225,7 +278,7 @@ def main():
     # Lưu trạng thái
     save_state({"last_alerted_candle": last_closed_candle_ts})
     print("✅ Đã lưu trạng thái.")
-    print("=" * 50)
+    print("=" * 70)
 
 if __name__ == "__main__":
     main()
