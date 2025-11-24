@@ -8,30 +8,30 @@ on:
 jobs:
   run-alma-alert:
     runs-on: ubuntu-latest
-    permissions:              # ← FIX LỖI PERMISSION
-      contents: write         # ← Cho phép ghi file vào repo
+    permissions:
+      contents: write
     
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
-
+      
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-
+      
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
           pip install requests
-
+      
       - name: Run ALMA alert script
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
         run: |
           python alma_alert.py
-
+      
       - name: Commit state file
         run: |
           git config user.name "GitHub Actions Bot"
